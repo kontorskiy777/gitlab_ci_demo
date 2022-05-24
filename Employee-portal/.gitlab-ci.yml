@@ -1,0 +1,99 @@
+stages:
+  - test
+  - build
+  - deploy feature
+  - feature test
+  - deploy staging
+  - staging test
+  - deploy prod
+
+variables:
+  branch_name: $CI_COMMIT_REF_SLUG
+  staging_port: 50800
+  deployment_stage_url: http://35.184.238.93:$staging_port
+  prod_port: 50900
+  deployment_url: http://35.184.238.93
+  deployment_prod_url: http://35.184.238.93:$prod_port
+
+lint_test:
+  stage: test
+  image: python:3.8.0-slim
+  before_script:
+    - pip3 install flake8-html
+  tags:
+    - docker
+  script:
+    - flake8 --format=html --htmldir=flake8_reports/
+  artifacts:
+    when: always
+    paths:
+      - flake8_reports/
+
+pytest:
+  image: python:3.8.0-slim
+  stage: test
+  before_script:
+    - pip install pytest-html
+    - pip install -r requirements.txt
+  script:
+    - pytest --html=pytest_reports/pytest-report.html --self-contained-html
+  artifacts:
+    when: always
+    paths:
+      - pytest_reports/
+  tags:
+    - docker
+
+build:
+  image: docker:latest
+  stage: build
+  before_script:
+    - docker login -u $dockerhub_login -p $dockerhub_pass
+  script:
+    - docker build -t $dockerhub_login/employee-image:$CI_COMMIT_SHORT_SHA .
+    - docker push $dockerhub_login/employee-image:$CI_COMMIT_SHORT_SHA
+  tags:
+    - ubuntu-vm
+
+deploy_staging:
+  image: docker:latest
+  stage: deploy staging
+  environment:
+    name: Develop
+    url: $deployment_stage_url
+  before_script:
+    - docker rm --force employee-portal
+  script:
+    - docker run -d --name=employee-portal -p $staging_port:80 $dockerhub_login/employee-image:$CI_COMMIT_SHORT_SHA
+  tags:
+    - ubuntu-vm
+  only:
+    - develop
+
+staging_testing:
+ image: alpine
+ stage: staging test
+ before_script:
+   - apk --no-cache add curl
+ script:
+   - curl -s $deployment_stage_url
+ tags:
+   - docker
+ only:
+   - develop
+
+deploy_prod:
+ image: docker:latest
+ stage: deploy prod
+ environment:
+   name: prod
+   url: $deployment_prod_url
+ before_script:
+   - docker rm --force employee-portal-prod
+ script:
+   - docker run -d --name=employee-portal-prod -p $prod_port:80 $dockerhub_login/employee-image:$branch_name
+ tags:
+   - ubuntu-vm
+ rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual

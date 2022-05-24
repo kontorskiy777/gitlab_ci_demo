@@ -1,0 +1,9 @@
+variables:
+  Name: "Artem"
+  Lastname: "Hrechanychenko"
+
+demo_job:
+  variables:
+    Name: "Not Artem" #that will override default variable
+  script:
+    - echo "Hello $Name $Lastname"

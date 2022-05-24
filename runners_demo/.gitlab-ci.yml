@@ -1,0 +1,21 @@
+stages:
+  - build
+  - deploy
+
+build:
+  script:
+    - docker --version
+    - docker build -t pyapp .
+  stage: build
+  tags:
+    - localrunner
+    - localshell
+
+deploy:
+  stage: deploy
+  script:
+    - docker rm --force pyappcontainer
+    - docker run -d --name pyappcontainer -p 80:8080 pyapp
+  tags:
+    - localrunner
+    - localshell

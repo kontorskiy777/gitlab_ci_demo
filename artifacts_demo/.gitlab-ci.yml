@@ -1,0 +1,26 @@
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  script:
+    - apt-get update -y
+    - apt-get install npm nodejs -y
+    - npm install
+  artifacts:
+    paths:
+      - node_modules
+      - package.lock.json
+    #expire_in: 1 week
+  tags:
+    - "ubuntu-docker"
+
+deploy:
+  stage: deploy
+  script:
+    - apt-get update -y
+    - apt-get install nodejs -y
+    - nohup node index.js &
+  tags:
+    - "node-js-runner"
